@@ -10,7 +10,7 @@ upperwall_image = pyglet.resource.image("bluesquare.png")
 lowerwall_image = pyglet.resource.image("bluesquare.png")
 
 score_label = pyglet.text.Label(text= "Score: 0", x = 10, y = 460)
-level_label = pyglet.text.Label(text="LEVEL 1",
+level_label = pyglet.text.Label(text="Click to start",
                             x=game_window.width//2, y=game_window.height//2, anchor_x='center')
 
 main_batch = pyglet.graphics.Batch()
@@ -30,8 +30,8 @@ tail_jump_vel = 11
 min_fall_vel_to_jump = 2
 max_fall_vel = 8
 
-player_snake = pyglet.sprite.Sprite(img=greensquare_image, x = greensquare_image.width, y=game_window.height//2, batch=main_batch)
-player_snake.vel_y = jump_vel
+player_snake = None #pyglet.sprite.Sprite(img=greensquare_image, x = greensquare_image.width, y=game_window.height//2, batch=main_batch)
+# player_snake.vel_y = jump_vel
 
 score = 0
 level = 1
@@ -96,9 +96,17 @@ def update(dt):
             food.remove(f)
             f.delete()
 
-    for t in snake_tail:
-        t.vel_y = max(-max_fall_vel, t.vel_y - gravity)
+    # update snake positions and velocities
+    for i,t in enumerate(snake_tail):
+        t.vel_y -= gravity
         t.y += t.vel_y
+        # make new velocity to chase next part of snake
+        if player_snake:
+            if i == 0 :
+                t.vel_y = (player_snake.y - t.y) / (greensquare_image.width / speed *120.0)
+            else:
+                t.vel_y = (snake_tail[i-1].y - t.y) / (greensquare_image.width / speed *120.0)
+
 
     #update player position
     if player_snake:
@@ -106,14 +114,15 @@ def update(dt):
         to_remove = []
         for f in food:
             if collides_with(player_snake, f):
-                f.delete()
-                to_remove.append(f)
                 # increase snake size:
                 tail_piece = pyglet.sprite.Sprite(img=greensquare_image, x=player_snake.x,
                                                     y=player_snake.y, batch=main_batch)
                 snake_tail.insert(0,tail_piece)
                 tail_piece.vel_y = player_snake.vel_y
                 player_snake.x += player_snake.width
+                player_snake.y = f.y
+                f.delete()
+                to_remove.append(f)
 
         for f in to_remove:
             food.remove(f)
@@ -136,6 +145,8 @@ def update(dt):
             player_snake.delete()
             player_snake = None
             pyglet.clock.unschedule(generateWallAndFood)
+            level_label.text = "You died! Click to Restart"
+
             for t in snake_tail:
                 t.rotation = random.randrange(90)
                 t.vel_y = random.randint(jump_vel, jump_vel * 2)
@@ -151,6 +162,8 @@ def update(dt):
                 player_snake.delete()
                 player_snake = None
                 pyglet.clock.unschedule(generateWallAndFood)
+                level_label.text = "You died! Click to Restart"
+
                 for t in snake_tail:
                     t.rotation = random.randrange(90)
                     t.vel_y = random.randint(jump_vel, jump_vel*2)
@@ -177,10 +190,10 @@ def on_key_press(symbol, modifiers):
         if player_snake.vel_y <= min_fall_vel_to_jump:
             player_snake.vel_y = jump_vel
 
-            # Schedule delayed jumps for tail
-            for i, t in enumerate(snake_tail):
-                pyglet.clock.schedule_once(gen_jump(t, (i+1) * greensquare_image.width / speed), (i+1) * greensquare_image.width / speed)
-    else:
+@game_window.event
+def on_mouse_press(x, y, button, modifiers):
+    global player_snake, snake_tail, walls, food, speed
+    if not player_snake:
         # restart, should make function
         level = 1
         level_label.text = "LEVEL %d" % level
@@ -205,12 +218,6 @@ def on_key_press(symbol, modifiers):
 
 
 
-def gen_jump(tail_piece, exp_time):
-    return lambda dt: jump(tail_piece, dt/exp_time)
-
-def jump(tail_piece, mult):
-    tail_piece.vel_y = mult * jump_vel
-
 
 def generateWallAndFood(dt):
     # Should check for game to continue
@@ -227,6 +234,6 @@ def generateWallAndFood(dt):
 
 
 if __name__ == '__main__':
-    pyglet.clock.schedule_once(generateWallAndFood, wall_interval)
+#    pyglet.clock.schedule_once(generateWallAndFood, wall_interval)
     pyglet.clock.schedule_interval(update, 1/120.0)
     pyglet.app.run()
